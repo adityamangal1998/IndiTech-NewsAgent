@@ -56,6 +56,7 @@ class NewsItem:
     category: str
     published_date: datetime
     source: str
+    image_url: str = ""
 
 class SuperFastNewsAgent:
     """Super fast news agent using RSS feeds without AI summarization"""
@@ -88,11 +89,14 @@ class SuperFastNewsAgent:
             "Technology": [
                 "https://feeds.feedburner.com/techcrunch/",
                 "https://www.theverge.com/rss/index.xml",
-                "https://feeds.arstechnica.com/arstechnica/index"
+                "https://feeds.arstechnica.com/arstechnica/index",
+                "https://feeds.feedburner.com/TechCrunch/"
             ],
             "Artificial Intelligence": [
                 "https://venturebeat.com/ai/feed/",
-                "https://www.artificialintelligence-news.com/feed/"
+                "https://www.artificialintelligence-news.com/feed/",
+                "https://feeds.feedburner.com/venturebeat/SZYF",
+                "https://feeds.feedburner.com/TechCrunch/"
             ],
             "Business": [
                 "https://feeds.bloomberg.com/markets/news.rss",
@@ -100,7 +104,9 @@ class SuperFastNewsAgent:
             ],
             "Startups": [
                 "https://feeds.feedburner.com/TechCrunch/startups",
-                "https://www.entrepreneur.com/latest.rss"
+                "https://www.entrepreneur.com/latest.rss",
+                "https://feeds.feedburner.com/TechCrunch/",
+                "https://feeds.forbes.com/entrepreneurs/feed"
             ],
             "India Happenings": [
                 "https://www.thehindu.com/news/national/feeder/default.rss",
@@ -113,7 +119,12 @@ class SuperFastNewsAgent:
         """Fetch and parse RSS feed with timeout"""
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
             }
             
             response = requests.get(url, headers=headers, timeout=timeout)
@@ -141,12 +152,53 @@ class SuperFastNewsAgent:
                 else:
                     summary = "No summary available."
                 
+                # Extract image URL
+                image_url = ""
+                try:
+                    # Try media:content first (common in RSS feeds)
+                    if hasattr(entry, 'media_content') and entry.media_content:
+                        image_url = entry.media_content[0].get('url', '')
+                    # Try enclosure
+                    elif hasattr(entry, 'enclosures') and entry.enclosures:
+                        for enclosure in entry.enclosures:
+                            if hasattr(enclosure, 'type') and enclosure.type.startswith('image/'):
+                                image_url = enclosure.href
+                                break
+                    # Try media:thumbnail
+                    elif hasattr(entry, 'media_thumbnail') and entry.media_thumbnail:
+                        image_url = entry.media_thumbnail[0].get('url', '')
+                    # Try looking in content/description for img tags
+                    elif entry.get('summary') or entry.get('description'):
+                        content = entry.get('summary', '') or entry.get('description', '')
+                        soup = BeautifulSoup(content, 'html.parser')
+                        img_tag = soup.find('img')
+                        if img_tag and img_tag.get('src'):
+                            image_url = img_tag.get('src')
+                    # Try links with media types
+                    elif hasattr(entry, 'links'):
+                        for link in entry.links:
+                            if hasattr(link, 'type') and link.type and link.type.startswith('image/'):
+                                image_url = link.href
+                                break
+                    # For TechCrunch feeds, try to extract from content
+                    if not image_url and 'techcrunch' in url.lower():
+                        if hasattr(entry, 'content') and entry.content:
+                            content_text = entry.content[0].value if entry.content else ''
+                            soup = BeautifulSoup(content_text, 'html.parser')
+                            img_tag = soup.find('img')
+                            if img_tag and img_tag.get('src'):
+                                image_url = img_tag.get('src')
+                except Exception as e:
+                    logger.debug(f"Image extraction failed for {entry.get('title', 'Unknown')}: {e}")
+                    pass  # If image extraction fails, continue without image
+                
                 articles.append({
                     'title': entry.get('title', 'No Title'),
                     'link': entry.get('link', ''),
                     'summary': summary,
                     'published': pub_date,
-                    'source': feed.feed.get('title', 'RSS Feed')
+                    'source': feed.feed.get('title', 'RSS Feed'),
+                    'image_url': image_url
                 })
             
             return articles
@@ -220,7 +272,8 @@ class SuperFastNewsAgent:
                     link=article['link'],
                     category=category,
                     published_date=article['published'],
-                    source=article['source']
+                    source=article['source'],
+                    image_url=article.get('image_url', '')
                 )
                 news_items.append(news_item)
         
@@ -246,15 +299,19 @@ class SuperFastNewsAgent:
                     all_news[category] = news_items
                     logger.info(f"✅ {category}: {len(news_items)} articles")
                 except Exception as e:
-                    logger.error(f"❌ Error fetching {category}: {e}")
+                    logger.error(f"❌ {category}: {e}")
                     all_news[category] = []
         
         end_time = datetime.now()
+        total_articles = sum(len(items) for items in all_news.values())
         duration = (end_time - start_time).total_seconds()
-        total_articles = sum(len(articles) for articles in all_news.values())
         
         logger.info(f"🎉 Super fast news fetch completed in {duration:.1f}s - {total_articles} articles")
         return all_news
+    
+    def fetch_category_news_extended(self, category: str, max_articles: int = 10) -> List[NewsItem]:
+        """Fetch more articles for a specific category (for category pages)"""
+        return self.fetch_category_news_super_fast(category, max_articles)
 
 def create_super_fast_news_agent(use_ai_summary: bool = True, aws_region: str = "us-east-1") -> SuperFastNewsAgent:
     """Factory function to create a super fast news agent"""

@@ -66,18 +66,61 @@
         }
         
         .news-item {
-            padding: 20px;
-            border-bottom: 1px solid #ecf0f1;
-            transition: all 0.3s ease;
-        }
-        
-        .news-item:last-child {
-            border-bottom: none;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            padding: 0;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid #e3f2fd;
+            overflow: hidden;
         }
         
         .news-item:hover {
-            background: #f8f9fa;
-            transform: translateX(5px);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+        
+        .news-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-bottom: 1px solid #e3f2fd;
+        }
+        
+        .news-content {
+            padding: 20px;
+        }
+        
+        .placeholder-image {
+            width: 100%;
+            height: 150px;
+            background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            font-size: 2rem;
+            border-bottom: 1px solid #e3f2fd;
+        }
+        
+        .see-more-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin-top: 15px;
+        }
+        
+        .see-more-btn:hover {
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
         }
         
         .news-title {
@@ -240,27 +283,92 @@
                         {% if articles %}
                             {% for article in articles %}
                             <div class="news-item">
-                                <h5 class="news-title">
-                                    <a href="{{ article.link }}" target="_blank" rel="noopener noreferrer">
-                                        {{ article.title }}
-                                    </a>
-                                </h5>
-                                <p class="news-summary">{{ article.summary }}</p>
-                                <div class="news-meta">
-                                    <span class="news-source">
-                                        <i class="fas fa-globe"></i> {{ article.source }}
-                                    </span>
-                                    <span class="news-date">
-                                        <i class="fas fa-calendar-alt"></i> 
-                                        {% if article.published_date %}
-                                            {{ article.published_date[:10] }}
+                                {% if article.image_url %}
+                                    <img src="{{ article.image_url }}" alt="{{ article.title }}" class="news-image" 
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="placeholder-image" style="display: none;">
+                                        {% if category == 'Technology' %}
+                                            <i class="fas fa-microchip"></i>
+                                        {% elif category == 'Artificial Intelligence' %}
+                                            <i class="fas fa-robot"></i>
+                                        {% elif category == 'Business' %}
+                                            <i class="fas fa-chart-line"></i>
+                                        {% elif category == 'Startups' %}
+                                            <i class="fas fa-rocket"></i>
+                                        {% elif category == 'India Happenings' %}
+                                            <i class="fas fa-flag"></i>
                                         {% else %}
-                                            Today
+                                            <i class="fas fa-newspaper"></i>
                                         {% endif %}
-                                    </span>
+                                    </div>
+                                {% else %}
+                                    <!-- Use placeholder image service for articles without images -->
+                                    {% if category == 'Technology' %}
+                                        <img src="https://via.placeholder.com/400x150/667eea/ffffff?text=📱+Technology" alt="{{ article.title }}" class="news-image"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    {% elif category == 'Artificial Intelligence' %}
+                                        <img src="https://via.placeholder.com/400x150/764ba2/ffffff?text=🤖+AI" alt="{{ article.title }}" class="news-image"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    {% else %}
+                                        <div class="placeholder-image">
+                                            {% if category == 'Business' %}
+                                                <i class="fas fa-chart-line"></i>
+                                            {% elif category == 'Startups' %}
+                                                <i class="fas fa-rocket"></i>
+                                            {% elif category == 'India Happenings' %}
+                                                <i class="fas fa-flag"></i>
+                                            {% else %}
+                                                <i class="fas fa-newspaper"></i>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="placeholder-image" style="display: none;">
+                                        {% if category == 'Technology' %}
+                                            <i class="fas fa-microchip"></i>
+                                        {% elif category == 'Artificial Intelligence' %}
+                                            <i class="fas fa-robot"></i>
+                                        {% elif category == 'Business' %}
+                                            <i class="fas fa-chart-line"></i>
+                                        {% elif category == 'Startups' %}
+                                            <i class="fas fa-rocket"></i>
+                                        {% elif category == 'India Happenings' %}
+                                            <i class="fas fa-flag"></i>
+                                        {% else %}
+                                            <i class="fas fa-newspaper"></i>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                                
+                                <div class="news-content">
+                                    <h5 class="news-title">
+                                        <a href="{{ article.link }}" target="_blank" rel="noopener noreferrer">
+                                            {{ article.title }}
+                                        </a>
+                                    </h5>
+                                    <p class="news-summary">{{ article.summary }}</p>
+                                    <div class="news-meta">
+                                        <span class="news-source">
+                                            <i class="fas fa-globe"></i> {{ article.source }}
+                                        </span>
+                                        <span class="news-date">
+                                            <i class="fas fa-calendar-alt"></i> 
+                                            {% if article.published_date %}
+                                                {{ article.published_date[:10] }}
+                                            {% else %}
+                                                Today
+                                            {% endif %}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                             {% endfor %}
+                            
+                            <!-- See More Button -->
+                            <div class="text-center">
+                                <a href="/category/{{ category }}" class="see-more-btn">
+                                    <i class="fas fa-arrow-right"></i> See More {{ category }} News
+                                </a>
+                            </div>
                         {% else %}
                             <div class="no-news">
                                 <i class="fas fa-info-circle"></i>
