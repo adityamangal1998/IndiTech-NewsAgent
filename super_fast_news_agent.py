@@ -90,29 +90,33 @@ class SuperFastNewsAgent:
                 "https://feeds.feedburner.com/techcrunch/",
                 "https://www.theverge.com/rss/index.xml",
                 "https://feeds.arstechnica.com/arstechnica/index",
-                "https://rss.cnn.com/rss/edition_technology.rss"
-                "https://feeds.arstechnica.com/arstechnica/index",
-                "https://feeds.feedburner.com/TechCrunch/"
+                "https://techcrunch.com/feed/"
             ],
             "Artificial Intelligence": [
-                "https://venturebeat.com/ai/feed/",
-                "https://www.artificialintelligence-news.com/feed/"
+                "https://www.artificialintelligence-news.com/feed/",
+                "https://feeds.feedburner.com/venturebeat/SZYF"
             ],
             "Business": [
                 "https://feeds.bloomberg.com/markets/news.rss",
                 "https://www.cnbc.com/id/10001147/device/rss/rss.html",
-                "https://feeds.reuters.com/reuters/businessNews",
-                "https://rss.cnn.com/rss/money_latest.rss"
+                "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+                "https://feeds.reuters.com/reuters/businessNews"
             ],
             "Startups": [
                 "https://feeds.feedburner.com/TechCrunch/startups",
-                "https://www.entrepreneur.com/latest.rss"
+                "https://feeds.feedburner.com/entrepreneur/latest"
             ],
             "India Happenings": [
                 "https://www.thehindu.com/news/national/feeder/default.rss",
                 "https://timesofindia.indiatimes.com/rssfeeds/1081479906.cms",
                 "https://economictimes.indiatimes.com/news/rssfeeds/1052732854.cms",
                 "https://feeds.feedburner.com/ndtvnews-latest"
+            ],
+            "Sports": [
+                "https://rss.cnn.com/rss/edition_sport.rss",
+                "https://feeds.bbci.co.uk/sport/rss.xml",
+                "https://www.goal.com/feeds/en/news",
+                "https://feeds.skysports.com/feeds/11095"
             ]
         }
 
@@ -126,25 +130,36 @@ class SuperFastNewsAgent:
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Accept-Encoding': 'gzip, deflate, br',
                 'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1'
+                'Upgrade-Insecure-Requests': '1',
+                'Cache-Control': 'no-cache'
             }
             
             # Try the request with retries for common errors
             max_retries = 2
+            response = None
+            
             for attempt in range(max_retries + 1):
                 try:
-                    response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+                    response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True, verify=True)
                     response.raise_for_status()
                     break
                 except requests.exceptions.HTTPError as e:
                     if e.response.status_code == 403 and attempt < max_retries:
                         # Try with a different User-Agent on 403 error
-                        headers['User-Agent'] = f'NewsBot/1.0 (+https://example.com/bot)'
+                        headers['User-Agent'] = f'NewsBot/1.0 (+https://newsaggregator.com/bot)'
                         continue
                     elif e.response.status_code == 429 and attempt < max_retries:
                         # Rate limited, wait and retry
                         import time
                         time.sleep(2)
+                        continue
+                    else:
+                        raise
+                except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
+                    if attempt < max_retries:
+                        # Try with different settings for SSL/connection errors
+                        import time
+                        time.sleep(1)
                         continue
                     else:
                         raise
@@ -154,11 +169,27 @@ class SuperFastNewsAgent:
                     else:
                         raise
             
+            if not response:
+                return []
+            
+            # Parse the feed
             feed = feedparser.parse(response.content)
             
             # Check if the feed parsed successfully
             if hasattr(feed, 'bozo') and feed.bozo:
-                logger.warning(f"Feed may have parsing issues: {url}")
+                # Try to determine if it's a critical parsing error
+                if hasattr(feed, 'bozo_exception'):
+                    exception_str = str(feed.bozo_exception)
+                    if 'not well-formed' in exception_str.lower() or 'syntax error' in exception_str.lower():
+                        logger.warning(f"Feed has serious parsing issues: {url} - {exception_str}")
+                        return []
+                    else:
+                        logger.debug(f"Feed has minor parsing issues but proceeding: {url}")
+                        
+            # Check if we have any entries
+            if not hasattr(feed, 'entries') or not feed.entries:
+                logger.warning(f"No entries found in feed: {url}")
+                return []
             
             articles = []
             for entry in feed.entries[:4]:  # Limit to 4 articles per feed
@@ -180,7 +211,7 @@ class SuperFastNewsAgent:
                 else:
                     summary = "No summary available."
                 
-                # Extract image URL
+                # Extract image URL with better error handling
                 image_url = ""
                 try:
                     # Try media:content first (common in RSS feeds)
@@ -189,7 +220,7 @@ class SuperFastNewsAgent:
                     # Try enclosure
                     elif hasattr(entry, 'enclosures') and entry.enclosures:
                         for enclosure in entry.enclosures:
-                            if hasattr(enclosure, 'type') and enclosure.type.startswith('image/'):
+                            if hasattr(enclosure, 'type') and enclosure.type and enclosure.type.startswith('image/'):
                                 image_url = enclosure.href
                                 break
                     # Try media:thumbnail
@@ -220,9 +251,16 @@ class SuperFastNewsAgent:
                     logger.debug(f"Image extraction failed for {entry.get('title', 'Unknown')}: {e}")
                     pass  # If image extraction fails, continue without image
                 
+                # Validate basic required fields
+                title = entry.get('title', 'No Title').strip()
+                link = entry.get('link', '').strip()
+                
+                if not title or len(title) < 5:  # Skip entries with very short or missing titles
+                    continue
+                    
                 articles.append({
-                    'title': entry.get('title', 'No Title'),
-                    'link': entry.get('link', ''),
+                    'title': title,
+                    'link': link,
                     'summary': summary,
                     'published': pub_date,
                     'source': feed.feed.get('title', 'RSS Feed'),
@@ -266,8 +304,11 @@ class SuperFastNewsAgent:
             logger.warning(f"No RSS feeds configured for category: {category}")
             return news_items
         
+        # Ensure we have at least 1 worker
+        max_workers = max(1, min(len(feeds), 4))  # Cap at 4 workers to avoid overwhelming
+        
         # Fetch feeds in parallel with shorter timeout
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(feeds)) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             feed_futures = [
                 executor.submit(self.fetch_rss_feed, feed_url, 6)  # 6 second timeout
                 for feed_url in feeds
