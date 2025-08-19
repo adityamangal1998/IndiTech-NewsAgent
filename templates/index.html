@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aditya Daily Digest - Latest News</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            margin: 20px auto;
+            padding: 30px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+        
+        .header-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .header-section h1 {
+            color: #2c3e50;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .header-section .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+        
+        .category-section {
+            margin-bottom: 40px;
+        }
+        
+        .category-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 15px 15px 0 0;
+            margin-bottom: 0;
+            font-weight: 600;
+            font-size: 1.3rem;
+        }
+        
+        .category-icon {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .news-container {
+            background: white;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        .news-item {
+            padding: 20px;
+            border-bottom: 1px solid #ecf0f1;
+            transition: all 0.3s ease;
+        }
+        
+        .news-item:last-child {
+            border-bottom: none;
+        }
+        
+        .news-item:hover {
+            background: #f8f9fa;
+            transform: translateX(5px);
+        }
+        
+        .news-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .news-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+        
+        .news-title a:hover {
+            color: #667eea;
+            text-decoration: underline;
+        }
+        
+        .news-summary {
+            color: #5d6d7e;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .news-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #95a5a6;
+        }
+        
+        .news-source {
+            font-weight: 500;
+        }
+        
+        .news-date {
+            font-style: italic;
+        }
+        
+        .refresh-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+            color: white;
+        }
+        
+        .last-update {
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #0c5460;
+        }
+        
+        .no-news {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner-border {
+            color: #667eea;
+        }
+        
+        @media (max-width: 768px) {
+            .main-container {
+                margin: 10px;
+                padding: 20px;
+            }
+            
+            .category-header {
+                font-size: 1.1rem;
+                padding: 12px 15px;
+            }
+            
+            .news-item {
+                padding: 15px;
+            }
+            
+            .news-meta {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <!-- Header Section -->
+            <div class="header-section">
+                <h1><i class="fas fa-newspaper"></i> Aditya Daily Digest</h1>
+                <p class="subtitle">Your personalized news aggregator powered by AI</p>
+            </div>
+            
+            <!-- Last Update Info -->
+            {% if last_update %}
+            <div class="last-update">
+                <i class="fas fa-clock"></i> Last updated: {{ last_update.strftime('%B %d, %Y at %I:%M %p') }}
+                {% if time_since_update %}
+                    ({{ time_since_update }})
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- Refresh Section -->
+            <div class="refresh-section">
+                <button id="refreshBtn" class="btn refresh-btn">
+                    <i class="fas fa-sync-alt"></i> Refresh News
+                </button>
+            </div>
+            
+            <!-- News Categories -->
+            {% if news_data %}
+                {% for category, articles in news_data.items() %}
+                <div class="category-section">
+                    <div class="category-header">
+                        {% if category == 'Technology' %}
+                            <i class="fas fa-microchip category-icon"></i>
+                        {% elif category == 'Artificial Intelligence' %}
+                            <i class="fas fa-robot category-icon"></i>
+                        {% elif category == 'Business' %}
+                            <i class="fas fa-chart-line category-icon"></i>
+                        {% elif category == 'Startups' %}
+                            <i class="fas fa-rocket category-icon"></i>
+                        {% elif category == 'India Happenings' %}
+                            <i class="fas fa-flag category-icon"></i>
+                        {% else %}
+                            <i class="fas fa-newspaper category-icon"></i>
+                        {% endif %}
+                        {{ category }}
+                        <span class="badge bg-light text-dark ms-2">{{ articles|length }}</span>
+                    </div>
+                    
+                    <div class="news-container">
+                        {% if articles %}
+                            {% for article in articles %}
+                            <div class="news-item">
+                                <h5 class="news-title">
+                                    <a href="{{ article.link }}" target="_blank" rel="noopener noreferrer">
+                                        {{ article.title }}
+                                    </a>
+                                </h5>
+                                <p class="news-summary">{{ article.summary }}</p>
+                                <div class="news-meta">
+                                    <span class="news-source">
+                                        <i class="fas fa-globe"></i> {{ article.source }}
+                                    </span>
+                                    <span class="news-date">
+                                        <i class="fas fa-calendar-alt"></i> 
+                                        {% if article.published_date %}
+                                            {{ article.published_date[:10] }}
+                                        {% else %}
+                                            Today
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="no-news">
+                                <i class="fas fa-info-circle"></i>
+                                No news available for this category at the moment.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="category-section">
+                    <div class="no-news">
+                        <h4><i class="fas fa-exclamation-triangle"></i> No News Available</h4>
+                        <p>Please check your configuration and try refreshing the news.</p>
+                        <p><small>Make sure your AWS credentials and API keys are properly configured in the .env file.</small></p>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Footer -->
+            <div class="text-center mt-4 pt-4" style="border-top: 1px solid #ecf0f1;">
+                <small class="text-muted">
+                    <i class="fas fa-heart text-danger"></i> 
+                    Built with Flask, LangChain, and AWS Bedrock Claude 3.5 Sonnet
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Modal -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <div class="loading">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-3">Fetching latest news...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Success/Error Toast -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 11">
+        <div id="refreshToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="fas fa-info-circle text-primary me-2"></i>
+                <strong class="me-auto">News Update</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                <!-- Message will be inserted here -->
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+            const toast = new bootstrap.Toast(document.getElementById('refreshToast'));
+            
+            refreshBtn.addEventListener('click', function() {
+                // Show loading modal
+                loadingModal.show();
+                
+                // Disable refresh button
+                refreshBtn.disabled = true;
+                refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+                
+                // Make refresh request
+                fetch('/refresh')
+                    .then(response => response.json())
+                    .then(data => {
+                        loadingModal.hide();
+                        
+                        if (data.status === 'success') {
+                            document.getElementById('toastMessage').textContent = data.message;
+                            document.getElementById('refreshToast').className = 'toast bg-success text-white';
+                            toast.show();
+                            
+                            // Reload page after a short delay
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+                        } else {
+                            document.getElementById('toastMessage').textContent = data.message;
+                            document.getElementById('refreshToast').className = 'toast bg-danger text-white';
+                            toast.show();
+                        }
+                    })
+                    .catch(error => {
+                        loadingModal.hide();
+                        document.getElementById('toastMessage').textContent = 'Error refreshing news. Please try again.';
+                        document.getElementById('refreshToast').className = 'toast bg-danger text-white';
+                        toast.show();
+                        console.error('Error:', error);
+                    })
+                    .finally(() => {
+                        // Re-enable refresh button
+                        refreshBtn.disabled = false;
+                        refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh News';
+                    });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aditya Daily Digest - Simple</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #f5f5f5; 
+        }
+        .header { 
+            text-align: center; 
+            color: #333; 
+            margin-bottom: 30px; 
+        }
+        .category { 
+            background: white; 
+            margin: 20px 0; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        .category h2 { 
+            color: #2c3e50; 
+            border-bottom: 2px solid #3498db; 
+            padding-bottom: 10px; 
+        }
+        .news-item { 
+            margin: 15px 0; 
+            padding: 15px; 
+            border-left: 4px solid #3498db; 
+            background: #f8f9fa; 
+        }
+        .news-title { 
+            font-weight: bold; 
+            margin-bottom: 8px; 
+        }
+        .news-title a { 
+            color: #2c3e50; 
+            text-decoration: none; 
+        }
+        .news-title a:hover { 
+            color: #3498db; 
+        }
+        .news-summary { 
+            color: #555; 
+            line-height: 1.5; 
+            margin-bottom: 8px; 
+        }
+        .news-meta { 
+            font-size: 0.9em; 
+            color: #777; 
+        }
+        .refresh-btn { 
+            background: #3498db; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+        }
+        .refresh-btn:hover { 
+            background: #2980b9; 
+        }
+        .no-news { 
+            text-align: center; 
+            color: #666; 
+            font-style: italic; 
+            padding: 40px; 
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📰 Aditya Daily Digest</h1>
+        <p>AI-Powered News Aggregator</p>
+        {% if last_update %}
+        <p><strong>Last Updated:</strong> {{ last_update.strftime('%B %d, %Y at %I:%M %p') }}</p>
+        {% endif %}
+        <button class="refresh-btn" onclick="refreshNews()">🔄 Refresh News</button>
+    </div>
+
+    {% if news_data %}
+        {% for category, articles in news_data.items() %}
+        <div class="category">
+            <h2>{{ category }} ({{ articles|length }} articles)</h2>
+            
+            {% if articles %}
+                {% for article in articles %}
+                <div class="news-item">
+                    <div class="news-title">
+                        <a href="{{ article.link }}" target="_blank">{{ article.title }}</a>
+                    </div>
+                    <div class="news-summary">{{ article.summary }}</div>
+                    <div class="news-meta">
+                        📰 {{ article.source }} | 📅 {{ article.published_date[:10] if article.published_date else 'Today' }}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-news">No news available for this category at the moment.</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="category">
+            <div class="no-news">
+                <h3>🔄 Loading News...</h3>
+                <p>Please wait while we fetch the latest news for you.</p>
+                <p><small>This may take a few moments the first time.</small></p>
+            </div>
+        </div>
+    {% endif %}
+
+    <script>
+        function refreshNews() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.disabled = true;
+            btn.textContent = '🔄 Refreshing...';
+            
+            fetch('/refresh')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('News refreshed successfully!');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error refreshing news: ' + error.message);
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.textContent = '🔄 Refresh News';
+                });
+        }
+        
+        // Auto-refresh indicator
+        console.log('Aditya Daily Digest loaded successfully!');
+    </script>
+</body>
+</html>
