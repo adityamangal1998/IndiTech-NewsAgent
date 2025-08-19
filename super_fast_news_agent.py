@@ -90,34 +90,36 @@ class SuperFastNewsAgent:
                 "https://feeds.feedburner.com/techcrunch/",
                 "https://www.theverge.com/rss/index.xml",
                 "https://feeds.arstechnica.com/arstechnica/index",
+                "https://rss.cnn.com/rss/edition_technology.rss"
+                "https://feeds.arstechnica.com/arstechnica/index",
                 "https://feeds.feedburner.com/TechCrunch/"
             ],
             "Artificial Intelligence": [
                 "https://venturebeat.com/ai/feed/",
-                "https://www.artificialintelligence-news.com/feed/",
-                "https://feeds.feedburner.com/venturebeat/SZYF",
-                "https://feeds.feedburner.com/TechCrunch/"
+                "https://www.artificialintelligence-news.com/feed/"
             ],
             "Business": [
                 "https://feeds.bloomberg.com/markets/news.rss",
-                "https://www.cnbc.com/id/10001147/device/rss/rss.html"
+                "https://www.cnbc.com/id/10001147/device/rss/rss.html",
+                "https://feeds.reuters.com/reuters/businessNews",
+                "https://rss.cnn.com/rss/money_latest.rss"
             ],
             "Startups": [
                 "https://feeds.feedburner.com/TechCrunch/startups",
-                "https://www.entrepreneur.com/latest.rss",
-                "https://feeds.feedburner.com/TechCrunch/",
-                "https://feeds.forbes.com/entrepreneurs/feed"
+                "https://www.entrepreneur.com/latest.rss"
             ],
             "India Happenings": [
                 "https://www.thehindu.com/news/national/feeder/default.rss",
                 "https://timesofindia.indiatimes.com/rssfeeds/1081479906.cms",
-                "https://economictimes.indiatimes.com/news/rssfeeds/1052732854.cms"
+                "https://economictimes.indiatimes.com/news/rssfeeds/1052732854.cms",
+                "https://feeds.feedburner.com/ndtvnews-latest"
             ]
         }
 
     def fetch_rss_feed(self, url: str, timeout: int = 8) -> List[Dict]:
-        """Fetch and parse RSS feed with timeout"""
+        """Fetch and parse RSS feed with timeout and enhanced headers"""
         try:
+            # More comprehensive headers to avoid 403 errors
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'application/rss+xml, application/xml, text/xml, */*',
@@ -127,10 +129,36 @@ class SuperFastNewsAgent:
                 'Upgrade-Insecure-Requests': '1'
             }
             
-            response = requests.get(url, headers=headers, timeout=timeout)
-            response.raise_for_status()
+            # Try the request with retries for common errors
+            max_retries = 2
+            for attempt in range(max_retries + 1):
+                try:
+                    response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+                    response.raise_for_status()
+                    break
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 403 and attempt < max_retries:
+                        # Try with a different User-Agent on 403 error
+                        headers['User-Agent'] = f'NewsBot/1.0 (+https://example.com/bot)'
+                        continue
+                    elif e.response.status_code == 429 and attempt < max_retries:
+                        # Rate limited, wait and retry
+                        import time
+                        time.sleep(2)
+                        continue
+                    else:
+                        raise
+                except requests.exceptions.RequestException as e:
+                    if attempt < max_retries:
+                        continue
+                    else:
+                        raise
             
             feed = feedparser.parse(response.content)
+            
+            # Check if the feed parsed successfully
+            if hasattr(feed, 'bozo') and feed.bozo:
+                logger.warning(f"Feed may have parsing issues: {url}")
             
             articles = []
             for entry in feed.entries[:4]:  # Limit to 4 articles per feed
@@ -230,9 +258,13 @@ class SuperFastNewsAgent:
             return content[:250] + "..." if len(content) > 250 else content
 
     def fetch_category_news_super_fast(self, category: str, max_articles: int = 3) -> List[NewsItem]:
-        """Super fast news fetching for a category"""
+        """Super fast news fetching for a category with improved error handling"""
         news_items = []
         feeds = self.rss_feeds.get(category, [])
+        
+        if not feeds:
+            logger.warning(f"No RSS feeds configured for category: {category}")
+            return news_items
         
         # Fetch feeds in parallel with shorter timeout
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(feeds)) as executor:
@@ -242,12 +274,21 @@ class SuperFastNewsAgent:
             ]
             
             all_articles = []
-            for future in concurrent.futures.as_completed(feed_futures, timeout=10):
+            successful_feeds = 0
+            for i, future in enumerate(concurrent.futures.as_completed(feed_futures, timeout=10)):
                 try:
                     articles = future.result()
-                    all_articles.extend(articles)
+                    if articles:  # Only count if we got articles
+                        all_articles.extend(articles)
+                        successful_feeds += 1
+                        logger.info(f"✅ {category} feed {i+1}: {len(articles)} articles")
+                    else:
+                        logger.warning(f"⚠️ {category} feed {i+1}: No articles returned")
                 except Exception as e:
-                    logger.error(f"Feed fetch failed: {e}")
+                    logger.error(f"❌ {category} feed {i+1} failed: {e}")
+            
+            # Log summary for the category
+            logger.info(f"📊 {category}: {successful_feeds}/{len(feeds)} feeds successful, {len(all_articles)} total articles")
             
             # Remove duplicates and get latest
             unique_articles = {}
