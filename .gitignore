@@ -1,6 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[codz]
+*.py[cod]
 *$py.class
 
 # C extensions
@@ -25,6 +25,27 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Custom for this project
+news_cache.json
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# AWS credentials (just in case)
+credentials
+config
+
+# API keys and secrets
+.env.local
+.env.production
+secrets.json
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
